@@ -1,0 +1,74 @@
+pipeline {
+    agent any
+
+    environment {
+        // Change this to your Docker Hub ID
+        DOCKER_HUB_USER = 'malaynew07'
+        APP_NAME        = 'aether-track'
+        IMAGE_TAG       = "${env.BUILD_NUMBER}"
+        
+        // Credentials IDs from Jenkins UI
+        WEATHER_API_KEY = credentials('weather-api-key')
+        GEMINI_API_KEY  = credentials('gemini-api-key')
+        DOCKER_HUB_CREDS = credentials('docker-hub-creds')
+    }
+
+    stages {
+        stage('Checkout & Cleanup') {
+            steps {
+                checkout scm
+                // Clear old logs to ensure the AI Agent reads fresh errors
+                sh 'rm -f build_error.log'
+            }
+        }
+
+        stage('Build & Push Image') {
+            steps {
+                script {
+                    try {
+                        // Standard Docker Build
+                        sh "docker build -t ${DOCKER_HUB_USER}/${APP_NAME}:${IMAGE_TAG} ."
+                        sh "docker build -t ${DOCKER_HUB_USER}/${APP_NAME}:latest ."
+                        
+                        // Docker Login and Push
+                        sh "echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin"
+                        sh "docker push ${DOCKER_HUB_USER}/${APP_NAME}:${IMAGE_TAG}"
+                        sh "docker push ${DOCKER_HUB_USER}/${APP_NAME}:latest"
+                    } catch (Exception e) {
+                        // CAPTURE ERROR: This is the 'Self-Healing' trigger
+                        sh "echo 'BUILD FAILURE LOG START' > build_error.log"
+                        // Capturing the last 100 lines of the Docker build attempt
+                        sh "docker build -t ${DOCKER_HUB_USER}/${APP_NAME}:${IMAGE_TAG} . 2>> build_error.log || true"
+                        error("Build failed. AI Agent is analyzing the logs...")
+                    }
+                }
+            }
+        }
+
+        stage('Manifest Update') {
+            /* In a real SRE workflow, this stage would use 'sed' to update 
+               the image tag in k8s/helm-chart/values.yaml and push back to Git.
+            */
+            steps {
+                echo "Image pushed: ${DOCKER_HUB_USER}/${APP_NAME}:${IMAGE_TAG}"
+                echo "ArgoCD will now sync the 'latest' tag to the cluster."
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "Pipeline Failed! Triggering AI Agent Analysis..."
+            // Run the Python AI script we created earlier
+            sh "python3 cicd/ai_healer.py build_error.log"
+            
+            // Send standard Jenkins email notification
+            mail to: 'malaypanigrahi52@gmail.com',
+                 subject: "Aether-Track Build #${env.BUILD_NUMBER} Failed",
+                 body: "The build failed. The AI Agent has analyzed the build_error.log and printed the fix in the Jenkins Console Output."
+        }
+        success {
+            echo "Build successful! Application is ready for ArgoCD sync."
+        }
+    }
+}

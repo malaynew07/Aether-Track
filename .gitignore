@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+venv/
+.env
+# Ignore the AI agent's temporary log files
+build_error.log

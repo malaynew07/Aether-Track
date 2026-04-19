@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether-Track | Live Weather</title>
+    <style>
+        body, html { margin: 0; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        .container { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        
+        /* Dynamic Backgrounds */
+        .weather-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transition: 1s; z-index: 1; }
+        .clear { background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%); }
+        .clouds { background: linear-gradient(to bottom, #bdc3c7, #2c3e50); }
+        .rain { background: linear-gradient(to bottom, #203a43, #2c5364); }
+
+        /* Simple Animation: Floating Clouds */
+        @keyframes moveClouds { from { transform: translateX(-10%); } to { transform: translateX(10%); } }
+        .cloud-anim { font-size: 100px; animation: moveClouds 3s infinite alternate ease-in-out; }
+
+        /* Simple Animation: Rain Drops */
+        @keyframes rain { from { transform: translateY(-100vh); } to { transform: translateY(100vh); } }
+        .rain-drop { position: absolute; background: white; width: 2px; height: 20px; opacity: 0.5; animation: rain 0.5s linear infinite; }
+
+        input { padding: 10px; border-radius: 20px; border: none; outline: none; }
+        button { padding: 10px 20px; border-radius: 20px; border: none; cursor: pointer; background: #ff9f43; color: white; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="weather-bg {{ weather.main if weather else 'clear' }}"></div>
+
+    <div class="container">
+        <form action="/" method="get">
+            <input type="text" name="city" placeholder="Enter City (e.g. Bengaluru)">
+            <button type="submit">Track</button>
+        </form>
+
+        {% if weather %}
+            <h1>{{ weather.city }}</h1>
+            <div class="temp">{{ weather.temp }}°C</div>
+            <p>{{ weather.description.capitalize() }}</p>
+            
+            {% if weather.main == 'clear' %}
+                <div class="cloud-anim">☀️</div>
+            {% elif weather.main == 'clouds' %}
+                <div class="cloud-anim">☁️</div>
+            {% elif weather.main == 'rain' %}
+                <div class="rain-drop" style="left:20%"></div>
+                <div class="rain-drop" style="left:50%"></div>
+                <div class="rain-drop" style="left:80%"></div>
+                <p>🌧️ It's raining!</p>
+            {% endif %}
+        {% endif %}
+
+        {% if error %}<p>{{ error }}</p>{% endif %}
+    </div>
+</body>
+</html>
